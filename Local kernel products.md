@@ -1,4 +1,8 @@
-# Local L2 kernel product values
+# Local kernel product values
+
+## Extended Second-order Lagrange basis functions in triangles 
+
+7 basis functions in a triangle
 
 $$
 \int_{\omega_0} \phi[i] \cdot \phi[j] \, du dv
@@ -85,3 +89,34 @@ $$
 \end{pmatrix}
 $$
 
+# First-order Raviart–Thomas basis functions in cubes
+
+6 basis functions in a cube
+
+$$
+\int_{\Omega_0}
+\phi[i] \cdot \phi[j] \, du dv dw
+=
+\frac{h^3}{6}
+\begin{pmatrix}
+2 & 1 & 0 & 0 & 0 & 0 \\
+1 & 2 & 0 & 0 & 0 & 0 \\
+0 & 0 & 2 & 1 & 0 & 0 \\
+0 & 0 & 1 & 2 & 0 & 0 \\
+0 & 0 & 0 & 0 & 2 & 1 \\
+0 & 0 & 0 & 0 & 1 & 2 
+\end{pmatrix}
+$$
+
+
+$$
+\int_{\Omega_0}
+\nabla \cdot \phi[i] \,\ du dv dw
+= 
+h^2
+\begin{pmatrix}
+-1 \\ 1 \\
+-1 \\ 1 \\
+-1 \\ 1
+\end{pmatrix}
+$$

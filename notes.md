@@ -37,7 +37,7 @@
 | $M$ | 板的弯曲矩 | $\omega\rightarrow\mathbb{R}^3$ | $a^3 \mathbf{C}\varepsilon(\nabla u_p)$ | $P_2$ (lagrange) |
 | $\lambda$ | 接触面压力差 | $\Gamma\rightarrow\mathbb{R}$ | $p_e - p_i$ | $P_0$ (lagrange) |
 | $p$ | 声场的声压 | $\Omega\rightarrow\mathbb{R}$ | | $P_0$ (piecewise constant in cube) |
-| $\mathbf{v}_a$ | 声场的空气速度 | $\Omega\rightarrow\mathbb{R}^3$ | | $P_0$ (Raviart–Thomas in cube)|
+| $\mathbf{v}_a$ | 声场的空气速度 | $\Omega\rightarrow\mathbb{R}^3$ | | $P_1$ (Raviart–Thomas in cube)|
 
 | 有限元系数向量 | 物理意义 | 域映射 | 定义 | 有限元 |
 | ----- | ------- | ----- | --- | ----- |
@@ -47,7 +47,7 @@
 | $M_h$ | 板的弯曲矩 | $\omega\rightarrow\mathbb{R}^3$ | $a^3 \mathbf{C}\varepsilon(\nabla u_p)$ | $P_2$ (lagrange) |
 | $\lambda_h$ | 接触面压力差 | $\Gamma\rightarrow\mathbb{R}$ | $p_e - p_i$ | $P_0$ (lagrange) |
 | $p_h$ | 声场的声压 | $\Omega\rightarrow\mathbb{R}$ | | $P_0$ (piecewise constant in cube) |
-| $\mathbf{v}_{a_h}$ | 声场的空气速度 | $\Omega\rightarrow\mathbb{R}^3$ | | $P_0$ (Raviart–Thomas in cube)|
+| $\mathbf{v}_{a_h}$ | 声场的空气速度 | $\Omega\rightarrow\mathbb{R}^3$ | | $P_1$ (Raviart–Thomas in cube)|
 
 ## 模型
 
