@@ -71,9 +71,9 @@ class String:
             values.extend([Q0, Q0, Q1, Q1])
         self.M_qh = sp.coo_matrix((values, (rows, cols)), shape=(Ns, Ns))
 
-    
+from grid import Grid3d
 
-class Air:
+class Air(Grid3d):
 
     def __init__(self, config):
         self.config = config
