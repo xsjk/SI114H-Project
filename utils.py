@@ -2,6 +2,7 @@ import numpy as np
 from collections import defaultdict
 import scipy.sparse as sp
 
+
 def make_edge(i0: int, i1: int) -> tuple[int, int]:
     return (i0, i1) if i0 < i1 else (i1, i0)
 
@@ -167,3 +168,52 @@ def reorder_tris(
         ret.append((next, head, tri1))
 
     return ret
+
+
+def compute_normals(vertices, triangles, reference_point):
+    """Compute the (external) normals of the mesh.
+
+    Args:
+        vertices (array-like, 3d points): The vertices of the mesh.
+        triangles (array-like, 3-tulple of indexes): The triangles of the mesh.
+        reference_point (array-like, one 3d point): The point to which the normals will be directed away from.
+
+    Return:
+        normals (array-like, 3d vectors): The normals of the mesh.
+    """
+    # Please use more numpy functions to speed up the computation.
+    vertices_num = len(vertices)
+    triangles_num = len(triangles)
+    normals = np.zeros((triangles_num, 3))
+    for i in range(triangles_num):
+        p1, p2, p3 = vertices[triangles[i]].reshape(3, 3)
+        normal = np.cross(p2 - p1, p3 - p1)
+        assert np.linalg.norm(normal) > 0
+        normal /= np.linalg.norm(normal)
+        if np.dot(normal, reference_point - p1) < 0:
+            normal *= -1
+        normals[i] = normal
+    return normals
+
+
+def check_normals(vertices, triangles, normals, reference_point) -> bool:
+    """Check whether the normals are correct (external and directed away from the reference point).
+
+    Args:
+        vertices (array-like): The vertices of the mesh.
+        triangles (array-like, 3-tuples): The triangles of the mesh.
+        normals (array-like, 3d vectors): The normals of the mesh.
+        reference_point (3d point): The point to which the normals should be directed away from.
+    Return:
+        bool: Whether the normals are correct.
+    """
+    for i in range(len(triangles)):
+        p1, p2, p3 = vertices[triangles[i]].reshape(3, 3)
+        normal = normals[i]
+        edge1 = p2 - p1
+        edge2 = p3 - p1
+        if np.abs(np.dot(normal, edge1)) > 1e-6 or np.abs(np.dot(normal, edge2)) > 1e-6:
+            return False
+        if np.dot(normal, reference_point - p1) < 0:
+            return False
+    return True
