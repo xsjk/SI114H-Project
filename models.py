@@ -442,8 +442,88 @@ class SoundBoard:
                 for j in range(3):
                     self.B_w_h_transpose[global_idxs[i], global_idxs[j]] += len_u_cross_v * M_int_gf[j][i]
 
+class Gamma:
+    def __init__(self, 
+                 vertice:np.ndarray[tuple[float, float, float]], 
+                 normals:np.ndarray[tuple[float, float, float]],
+                 triangles:np.ndarray[tuple[int, int, int]]
+                ) -> None:
+        self.vertices = vertice
+        self.normals = normals
+        self.triangles = triangles
+
+        assert len(vertice) == len(normals), "each vertice should have one and only one normal"
+
+    def calc_vertice_normal(self, tri_idx:int, u:float, v:float)->tuple[float, float, float]:
+        assert u >= 0.0 and v >= 0.0 and u + v <= 1.0
+
+        i0, i1, i2 = self.triangles[tri_idx]
+
+        n = (1.0 - u - v) * self.normals[i0] + u * self.normals[i1] + v * self.normals[i2]
+        n /= np.linalg.norm(n)
+
+        return n
+    
+
+def get_B_gamma_h(air:Air, gamma:Gamma)->sp.dok_matrix:
+
+    lambda0 = lambda u, v : 1.0 - u - v
+    lambda1 = lambda u, v : u 
+    lambda2 = lambda u, v : v
+    lambdas = [lambda0, lambda1, lambda2]
+
+    simulate_points:list[tuple[float, float, float]] = [
+        #In the form of u, v, weight
+        #The following constrains should be satisfied
+        #   for each item, u >= 0 ; v >= 0 ; u + v <= 1.0
+        #   the sum of all weights should be equal to 1.0
+        (0.0, 0.0, 1 / 4), 
+        (1.0, 0.0, 1 / 4),
+        (0.0, 1.0, 1 / 4),
+        (1 / 3, 1 / 3, 1 / 4)
+    ]
+
+    ret = sp.dok_matrix((len(gamma.normals), air.get_num_base_func()))
+    h = air.config["grid l"]
+
+    for tri_idx, global_tri_idxs in enumerate(gamma.triangles):
+        p0 = gamma.vertices[global_tri_idxs[0]]
+        p1 = gamma.vertices[global_tri_idxs[1]]
+        p2 = gamma.vertices[global_tri_idxs[2]]
+        ps = [p0, p1, p2]
+
+        vec_u = p1 - p0
+        vec_v = p2 - p0
+        v_cross_u = np.cross(vec_v, vec_u)
+        len_v_cross_u = np.linalg.norm(v_cross_u)
+
+        for p_idx, (u, v, weight) in enumerate(simulate_points):
+            pos = (1.0-u-v) * p0 + u * p1 + v * p2
+            n = np.array(gamma.calc_vertice_normal(tri_idx, u, v))
+            x0, y0, z0 = air.get_min_coord(pos)
+            global_air_idxs =  air.get_point_base_func_idxs(pos)
+
+            air_base_funcs = [
+                lambda x, y, z : np.array([1.0 - (x - x0) / h, 0.0, 0.0]),
+                lambda x, y, z : np.array([(x - x0) / h, 0.0, 0.0]),
+                lambda x, y, z : np.array([0.0, 1.0 - (y - y0) / h, 0.0]),
+                lambda x, y, z : np.array([0.0, (y - y0) / h, 0.0]),
+                lambda x, y, z : np.array([0.0, 0.0, 1.0 - (z - z0) / h]), 
+                lambda x, y, z : np.array([0.0, 0.0, (z - z0) / h])
+            ]
+
+            for j in range(3):
+                for i in range(6):
+                    ret[global_tri_idxs[j], global_air_idxs[i]] += np.dot(air_base_funcs[i](*ps[j]), n) * lambdas[j](u, v) * weight * len_v_cross_u
+
+
+
+    return ret
+
+
 
 if __name__ == '__main__':
+
     import open3d as o3d
     import numpy as np
     mesh = o3d.io.read_triangle_mesh("sound_board.stl")

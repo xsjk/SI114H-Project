@@ -4,7 +4,11 @@ import math
 import open3d as o3d
 
 class Grid3d:
-    def __init__(self, min:tuple[float, float, float], max:tuple[float, float, float], resolution:tuple[int, int, int]) -> None:
+    def __init__(self, 
+                min:tuple[float, float, float], 
+                max:tuple[float, float, float], 
+                resolution:tuple[int, int, int]
+                ) -> None:
 
         '''@resolution:在长、宽、高上grid的数量'''
         self.min:np.ndarray = np.array(min)
@@ -84,6 +88,10 @@ class Grid3d:
     
     def get_num_grid(self)->int:
         return self.resolution[0] * self.resolution[1] * self.resolution[2]
+    
+    def get_min_coord(self, pos:tuple[float, float, float])->tuple[float, float, float]:
+        pos = np.array(pos)
+        return self.min + np.floor((pos - self.min) / self.__get_delta()) * self.__get_delta()
 
 
 if __name__ == "__main__":
