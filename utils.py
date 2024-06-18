@@ -2,6 +2,7 @@ import numpy as np
 from collections import defaultdict
 import scipy.sparse as sp
 
+
 def make_edge(i0: int, i1: int) -> tuple[int, int]:
     return (i0, i1) if i0 < i1 else (i1, i0)
 
@@ -169,7 +170,6 @@ def reorder_tris(
     return ret
 
 
-
 def compute_normals(vertices, triangles, reference_point):
     """Compute the (external) normals of the mesh.
 
@@ -177,7 +177,7 @@ def compute_normals(vertices, triangles, reference_point):
         vertices (array-like, 3d points): The vertices of the mesh.
         triangles (array-like, 3-tulple of indexes): The triangles of the mesh.
         reference_point (array-like, one 3d point): The point to which the normals will be directed away from.
-    
+
     Return:
         normals (array-like, 3d vectors): The normals of the mesh.
     """
@@ -194,6 +194,7 @@ def compute_normals(vertices, triangles, reference_point):
             normal *= -1
         normals[i] = normal
     return normals
+
 
 def check_normals(vertices, triangles, normals, reference_point) -> bool:
     """Check whether the normals are correct (external and directed away from the reference point).
