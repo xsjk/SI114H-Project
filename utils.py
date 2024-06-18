@@ -66,18 +66,6 @@ def dict_create_or_add(d: dict, key: tuple[int, int], v: float) -> None:
         d[key] += v
 
 
-def f0(u, v): return (1.0 - (u + v) / 2) * (1. - u - v)
-def f1(u, v): return (1.0 + u) * u / 2.0
-def f2(u, v): return (1.0 + v) * v / 2.0
-def f3(u, v): return 4.0 * u * (1.0 - u - v)
-def f4(u, v): return 4 * u * v
-def f5(u, v): return 4 * v * (1.0 - u - v)
-def f6(u, v): return 27 * u * v * (1.0 - u - v)
-
-
-f = [f0, f1, f2, f3, f4, f5, f6]
-
-
 def get_coef(v0, v1, p) -> tuple[float, float]:
     u = np.dot(v0, p) / np.linalg.norm(v0)
     v = np.dot(v1, p) / np.linalg.norm(v1)
@@ -179,16 +167,3 @@ def reorder_tris(
         ret.append((next, head, tri1))
 
     return ret
-
-
-def create_sprase_mat(dict: defaultdict[tuple[int, int], float], shape: tuple[int, int]) -> sp.coo_matrix:
-    row_idxs: list[int] = []
-    col_idxs: list[int] = []
-    vals: list[float] = []
-
-    for r_idx, c_idx in dict:
-        row_idxs.append(r_idx)
-        col_idxs.append(c_idx)
-        vals.append(dict[(r_idx, c_idx)])
-
-    return sp.coo_matrix((vals, (row_idxs, col_idxs)), shape=shape)
