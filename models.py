@@ -60,8 +60,8 @@ class String:
         ls = self.config["ls"]
         Ns = self.config["Ns"]
         T = self.config["T"]
-        Q0 = 1 / (3 * T) * (ls / (Ns - 1)) ** 5
-        Q1 = 1 / (6 * T) * (ls / (Ns - 1)) ** 5
+        Q0 = 1 / (3 * T) * (ls / (Ns - 1))
+        Q1 = 1 / (6 * T) * (ls / (Ns - 1))
         rows = []
         cols = []
         values = []
