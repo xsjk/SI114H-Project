@@ -75,7 +75,6 @@ from grid import Grid3d
 import scipy.sparse as sp
 from collections import defaultdict
 import scipy.integrate as integrate
-from utils import create_sprase_mat
 
 class Air(Grid3d):
 
@@ -95,17 +94,17 @@ class Air(Grid3d):
         self.M_pah = sp.diags(diag_values, offsets=0, format="coo")
 
     def __get_Gh_transpose(self)->None:
-        mat_data:defaultdict[tuple[int, int], float] = defaultdict(lambda : 0.0)
 
         h = self.config["grid l"]
         mat_int = (-1.0, 1.0, -1.0, 1.0, -1.0, 1.0)
+
+        self.Gh_transpose = sp.dok_matrix((self.get_num_grid(), self.get_num_base_func()))
+                                          
         for j in range(self.get_num_grid()):
             global_idxs = self.get_idx1d_base_func_idxs(j)
             for i in range(6):
-                mat_data[(j, global_idxs[i])] += h**2 * mat_int[i]
+                self.Gh_transpose[j, global_idxs[i]] += h**2 * mat_int[i]
         
-        self.Gh_transpose = create_sprase_mat(mat_data, (self.get_num_grid(), self.get_num_base_func()))
-
     def __get_M_ah(self) -> None:
         mat_int:np.ndarray[np.ndarray[float]] = np.array([
             [2.0, 1.0, 0.0, 0.0, 0.0, 0.0], 
@@ -116,15 +115,14 @@ class Air(Grid3d):
             [0.0, 0.0, 0.0, 0.0, 1.0, 2.0]
         ]) * self.config["grid l"] ** 3 / 6 * self.config["rho_a"]
 
-        mat_data:defaultdict[tuple[int, int], float] = defaultdict(lambda : 0.0)
-        
+        self.M_ah = sp.dok_matrix((self.get_num_base_func(), self.get_num_base_func()))
+
         for grid_idx in range(self.get_num_grid()):
             global_idxs = self.get_idx1d_base_func_idxs(grid_idx)
             for j in range(6):
                 for i in range(6):
-                    mat_data[(global_idxs[i], global_idxs[j])] += mat_int[i, j]
+                    self.M_ah[global_idxs[i], global_idxs[j]] += mat_int[i, j]
 
-        self.M_ah = create_sprase_mat(mat_data, (self.get_num_base_func(), self.get_num_base_func()))
 
 
 from utils import map_vertices, map_edge, make_edge, get_boundary_edges, reorder_tris, screen_tris

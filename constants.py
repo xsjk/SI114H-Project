@@ -37,5 +37,9 @@ constants = {
 
     # coupling parameters
     "x0": 0, "y0": 0.1, # the position of the interaction point between the string and the plate
-
+    "grid min":[-0.75, -0.75, -0.5], 
+    "grid resolution":[50, 50, 50], 
+    "grid l":0.03,
+    "rho_a":1.21,
+    "c_a":344
 }
