@@ -72,42 +72,59 @@ class String:
         self.M_qh = sp.coo_matrix((values, (rows, cols)), shape=(Ns, Ns))
 
 from grid import Grid3d
+import scipy.sparse as sp
+from collections import defaultdict
+import scipy.integrate as integrate
+from utils import create_sprase_mat
 
 class Air(Grid3d):
 
     def __init__(self, config):
         self.config = config
+        grid_min = np.array(config["grid min"])
+        grid_delta = np.array(config["grid resolution"]) * config["grid l"]
+        grid_max = grid_min + grid_delta
+        super().__init__(grid_min, grid_max, config["grid resolution"])
+        self.__get_M_pah()
+        self.__get_Gh_transpose()
         self.__get_M_ah()
-        self.__get_G_h()
-        
+    
 
-    def __get_G_h(self) -> None:
-        self.G_h = None
-        raise NotImplementedError
+    def __get_M_pah(self) -> None:
+        diag_values = np.full(self.get_num_grid() , self.config["grid l"] ** 3 / (self.config["rho_a"] * self.config["c_a"] ** 2))
+        self.M_pah = sp.diags(diag_values, offsets=0, format="coo")
+
+    def __get_Gh_transpose(self)->None:
+        mat_data:defaultdict[tuple[int, int], float] = defaultdict(lambda : 0.0)
+
+        h = self.config["grid l"]
+        mat_int = (-1.0, 1.0, -1.0, 1.0, -1.0, 1.0)
+        for j in range(self.get_num_grid()):
+            global_idxs = self.get_idx1d_base_func_idxs(j)
+            for i in range(6):
+                mat_data[(j, global_idxs[i])] += h**2 * mat_int[i]
+        
+        self.Gh_transpose = create_sprase_mat(mat_data, (self.get_num_grid(), self.get_num_base_func()))
 
     def __get_M_ah(self) -> None:
-        self.M_ah = None
-        raise NotImplementedError
+        mat_int:np.ndarray[np.ndarray[float]] = np.array([
+            [2.0, 1.0, 0.0, 0.0, 0.0, 0.0], 
+            [1.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 2.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 2.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 2.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 2.0]
+        ]) * self.config["grid l"] ** 3 / 6 * self.config["rho_a"]
 
+        mat_data:defaultdict[tuple[int, int], float] = defaultdict(lambda : 0.0)
+        
+        for grid_idx in range(self.get_num_grid()):
+            global_idxs = self.get_idx1d_base_func_idxs(grid_idx)
+            for j in range(6):
+                for i in range(6):
+                    mat_data[(global_idxs[i], global_idxs[j])] += mat_int[i, j]
 
-config: dict = {
-    "D1": 850.0,
-    "D2": 50.0,
-    "D3": 75.0,
-    "D4": 200.0,
-    "plate vertical axis": 1,
-    "plate thd": -0.04645,
-    "plate x axis": 0,
-    "plate x min": -0.075,
-    "plate x max": 0.075,
-    "plate y axis": 2,
-    "plate y min": 0.25,
-    "plate y max": 0.40,
-    "gamma_0_ref_dir": False,
-    "gamma_f_ref_dir": False,
-    "x0": 0.0,
-    "y0": 0.28
-}
+        self.M_ah = create_sprase_mat(mat_data, (self.get_num_base_func(), self.get_num_base_func()))
 
 
 from utils import map_vertices, map_edge, make_edge, get_boundary_edges, reorder_tris, screen_tris, create_sprase_mat

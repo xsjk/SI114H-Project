@@ -81,6 +81,9 @@ class Grid3d:
     
     def get_num_base_func(self)->int:
         return 3 * self.resolution[0] * self.resolution[1] * self.resolution[2] + self.resolution[0] * self.resolution[1] + self.resolution[0] * self.resolution[2] + self.resolution[1] * self.resolution[2]
+    
+    def get_num_grid(self)->int:
+        return self.resolution[0] * self.resolution[1] * self.resolution[2]
 
 
 if __name__ == "__main__":
