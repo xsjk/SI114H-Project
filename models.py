@@ -110,7 +110,7 @@ config: dict = {
 }
 
 
-from utils import map_vertices, map_edge, make_edge, get_boundary_edges, reorder_tris, screen_tris, create_sprase_mat
+from utils import map_vertices, map_edge, make_edge, get_boundary_edges, reorder_tris, screen_tris
 from vis_utils import show_vector
 import open3d as o3d
 
@@ -146,8 +146,11 @@ class SoundBoard:
         print(f"# of total points: {self.total_points()}")
         print(f"# of edges on gamma_f: {len(self.gamma_f)}")
         print(f"# of edges on gamma_0: {len(self.gamma_0)}")
-        self.__get_M_Mh()
+        self.__get_J_h()
         self.__get_H_h()
+        self.__get_M_Mh()
+        self.__get_M_ph()
+        self.__get_B_w_h_transpose()
 
     def total_points(self) -> int:
         return self.num_vertices + self.num_edges + self.num_centers
@@ -177,9 +180,8 @@ class SoundBoard:
             [3 / 56, 3 / 56, 3 / 56, 3 / 35, 3 / 35, 3 / 35, 81 / 560]
         ]
 
-        data_dict: defaultdict[tuple[int, int],
-                               float] = defaultdict(lambda: 0.0)
-        a_p = self.config["a_p"]
+        self.M_ph = sp.dok_matrix((self.total_points(), self.total_points()))
+        a = self.config["a"]
         rho_p = self.config["rho_p"]
 
         for loc_i0, loc_i1, loc_i2, *global_idxs in self.data:
@@ -192,25 +194,32 @@ class SoundBoard:
             vec_u[1] = 0.0
             vec_v[1] = 0.0
             u_cross_v = np.cross(vec_u, vec_v)
-            coef = a_p * rho_p * np.linalg.norm(u_cross_v)
+            coef = a * rho_p * np.linalg.norm(u_cross_v)
 
             for i in range(7):
                 for j in range(7):
-                    data_dict[(global_idxs[j], global_idxs[i])
-                              ] += coef * M_int[i][j]
-
-        self.M_ph = create_sprase_mat(
-            data_dict, (self.total_points(), self.total_points()))
+                    self.M_ph[global_idxs[j], global_idxs[i]] += coef * M_int[i][j]
 
     def __get_J_h(self) -> None:
         x0 = self.config["x0"]
         y0 = self.config["y0"]
         Ns = self.config["Ns"]
         T = self.config["T"]
-        data_dict: defaultdict[tuple[int, int],
-                               float] = defaultdict(lambda: 0.0)
+        
+        self.J_h = sp.dok_matrix((self.total_points(), Ns))
+
+        f0 = lambda u, v: (1.0 - (u + v) / 2) * (1. - u - v)
+        f1 = lambda u, v: (1.0 + u) * u / 2.0
+        f2 = lambda u, v: (1.0 + v) * v / 2.0
+        f3 = lambda u, v: 4.0 * u * (1.0 - u - v)
+        f4 = lambda u, v: 4 * u * v
+        f5 = lambda u, v: 4 * v * (1.0 - u - v)
+        f6 = lambda u, v: 27 * u * v * (1.0 - u - v)
+
+        f = [f0, f1, f2, f3, f4, f5, f6]
+
         cnt = 0
-        for loc_i0, loc_i1, loc_i2, *global_idxs in self.data:
+        for tri_idx, (loc_i0, loc_i1, loc_i2, *global_idxs) in enumerate(self.data):
             p0 = self.vertices[loc_i0]
             p1 = self.vertices[loc_i1]
             p2 = self.vertices[loc_i2]
@@ -221,17 +230,22 @@ class SoundBoard:
             vec_target[1] = 0.0
             vec_u[1] = 0.0
             vec_v[1] = 0.0
-
-            u = np.dot(vec_u, vec_target) / np.dot(vec_u, vec_u)
-            v = np.dot(vec_v, vec_target) / np.dot(vec_v, vec_v)
+            
+            u = vec_v[2] * vec_target[0] - vec_v[0] * vec_target[2]
+            v = vec_u[0] * vec_target[2] - vec_u[2] * vec_target[0]
+            det = vec_u[0] * vec_v[2] - vec_u[2] * vec_v[0]
+            u /= det
+            v /= det
 
             if u >= 0.0 and v >= 0.0 and u + v <= 1.0:
                 cnt += 1
                 for i in range(7):
-                    data_dict[(global_idxs[i], Ns-1)] += f[i](u, v) * T
+                    self.J_h[(global_idxs[i], Ns-1)] += f[i](u, v) * T
+
+        if cnt != 1:
+            print(cnt)
 
         assert cnt == 1, "only one satisfied triangle"
-        self.J_h = create_sprase_mat(data_dict, (self.total_points(), Ns))
 
     def __get_M_Mh(self) -> None:
         M_int = [
@@ -258,6 +272,7 @@ class SoundBoard:
         ]
 
         data: dict[tuple[int, int], float] = defaultdict(lambda: 0.0)
+        self.M_Mh = sp.dok_matrix((self.total_points() * 3, self.total_points() * 3))
 
         for loc_i0, loc_i1, loc_i2, *global_idx in self.data:
             loc_p0 = self.vertices[loc_i0]
@@ -276,20 +291,8 @@ class SoundBoard:
                     for ii in range(3):
                         for jj in range(3):
                             b_ii_jj = inv_C[ii][jj]
-                            data[(3 * global_idx[i] + ii, 3 *
-                                  global_idx[j] + jj)] += int_v * b_ii_jj
+                            self.M_Mh[(3 * global_idx[i] + ii, 3 * global_idx[j] + jj)] += int_v * b_ii_jj
 
-        row_idxs: list[int] = []
-        col_idxs: list[int] = []
-        vals: list[float] = []
-
-        for r_idx, c_idx in data:
-            row_idxs.append(r_idx)
-            col_idxs.append(c_idx)
-            vals.append(data[(r_idx, c_idx)])
-
-        self.M_Mh = sp.coo_matrix((vals, (row_idxs, col_idxs)), shape=(
-            self.total_points() * 3, self.total_points() * 3))
 
     def __get_H_h(self) -> None:
         M_int_uu = [
@@ -341,7 +344,7 @@ class SoundBoard:
             [0, 0, 0, 0, 0, 0, 0]
         ]
 
-        data: defaultdict[tuple[int, int], float] = defaultdict(lambda: 0.0)
+        self.H_h = sp.dok_matrix((self.total_points() * 3, self.total_points()))
 
         # plate
 
@@ -364,11 +367,11 @@ class SoundBoard:
 
             for i in range(7):
                 for j in range(7):
-                    data[(3 * global_idx[j] + 0, global_idx[i])] += norm_corss_uv * (M_int_uu[i][j] * inv_Q[0, 0] * inv_Q[0, 0] + (
+                    self.H_h[(3 * global_idx[j] + 0, global_idx[i])] += norm_corss_uv * (M_int_uu[i][j] * inv_Q[0, 0] * inv_Q[0, 0] + (
                         M_int_uv[i][j] + M_int_uv[j][i]) * inv_Q[0, 0] * inv_Q[1, 0] + M_int_vv[i][j] * inv_Q[1, 0] * inv_Q[1, 0])
-                    data[(3 * global_idx[j] + 1, global_idx[i])] += norm_corss_uv * (M_int_uu[i][j] * inv_Q[0, 1] * inv_Q[0, 1] + (
+                    self.H_h[(3 * global_idx[j] + 1, global_idx[i])] += norm_corss_uv * (M_int_uu[i][j] * inv_Q[0, 1] * inv_Q[0, 1] + (
                         M_int_uv[i][j] + M_int_uv[j][i]) * inv_Q[0, 1] * inv_Q[1, 1] + M_int_vv[i][j] * inv_Q[1, 1] * inv_Q[1, 1])
-                    data[(3 * global_idx[j] + 2, global_idx[i])] += norm_corss_uv * (2.0 * M_int_uu[i][j] * inv_Q[0, 0] * inv_Q[0, 1] + (M_int_uv[i]
+                    self.H_h[(3 * global_idx[j] + 2, global_idx[i])] += norm_corss_uv * (2.0 * M_int_uu[i][j] * inv_Q[0, 0] * inv_Q[0, 1] + (M_int_uv[i]
                                                                                                                                          [j] + M_int_uv[j][i]) * (inv_Q[0, 0] * inv_Q[1, 1] + inv_Q[0, 1] * inv_Q[1, 0]) + 2.0 * M_int_vv[i][j] * inv_Q[1, 0] * inv_Q[1, 1])
 
         # gamma_f
@@ -394,25 +397,9 @@ class SoundBoard:
 
             for j in range(7):
                 for i in [0, 1, 3]:
-                    data[(3 * global_idx[j] + 0, global_idx[i])
-                         ] += inv_len_vec_tao * vec_n[0] * vec_tao[0] * M_int_u[i][j]
-                    data[(3 * global_idx[j] + 1, global_idx[i])
-                         ] += inv_len_vec_tao * vec_n[2] * vec_tao[2] * M_int_u[i][j]
-                    data[(3 * global_idx[j] + 2, global_idx[i])] += inv_len_vec_tao * \
-                        (vec_n[0] * vec_tao[2] + vec_n[2]
-                         * vec_tao[0]) * M_int_u[i][j]
-
-        row_idxs: list[int] = []
-        col_idxs: list[int] = []
-        vals: list[float] = []
-
-        for r_idx, c_idx in data:
-            row_idxs.append(r_idx)
-            col_idxs.append(c_idx)
-            vals.append(data[(r_idx, c_idx)])
-
-        self.M_Mh = sp.coo_matrix((vals, (row_idxs, col_idxs)), shape=(
-            self.total_points() * 3, self.total_points()))
+                    self.H_h[(3 * global_idx[j] + 0, global_idx[i])] += inv_len_vec_tao * vec_n[0] * vec_tao[0] * M_int_u[i][j]
+                    self.H_h[(3 * global_idx[j] + 1, global_idx[i])] += inv_len_vec_tao * vec_n[2] * vec_tao[2] * M_int_u[i][j]
+                    self.H_h[(3 * global_idx[j] + 2, global_idx[i])] += inv_len_vec_tao * (vec_n[0] * vec_tao[2] + vec_n[2] * vec_tao[0]) * M_int_u[i][j]
 
     def __get_B_w_h_transpose(self):
         M_int_gf: list[list[float]] = [
@@ -421,7 +408,7 @@ class SoundBoard:
             [23 / 240, 7 / 120, 23 / 240, 1 / 10, 1 / 10, 2 / 15, 3 / 20]
         ]
 
-        data: defaultdict[tuple[int, int], float] = defaultdict(lambda: 0.0)
+        self.B_w_h_transpose = sp.dok_matrix((self.total_points(), len(self.vertices)))
 
         for loc_i0, loc_i1, loc_i2, *global_idxs in self.data:
             p0 = self.vertices[loc_i0]
@@ -438,9 +425,20 @@ class SoundBoard:
 
             for i in range(7):
                 for j in range(3):
-                    data[(global_idxs[i], global_idxs[j])
-                         ] += len_u_cross_v * M_int_gf[j][i]
+                    self.B_w_h_transpose[global_idxs[i], global_idxs[j]] += len_u_cross_v * M_int_gf[j][i]
 
-        self.B_w_h_transpose = create_sprase_mat(
-            data, (self.total_points(), len(self.vertices)))
 
+if __name__ == '__main__':
+    import open3d as o3d
+    import numpy as np
+    mesh = o3d.io.read_triangle_mesh("sound_board.stl")
+
+    from constants import constants
+    vertices = np.asanyarray(mesh.vertices)
+    triangles = np.asanyarray(mesh.triangles)
+
+    vertices, inverse_indices = np.unique(vertices, axis=0, return_inverse=True)
+    triangles = inverse_indices[triangles]
+
+    from models import SoundBoard
+    soundBoard = SoundBoard(vertices, triangles, constants)
