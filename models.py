@@ -297,7 +297,7 @@ class SoundBoard:
             norm_cross_uv = np.linalg.norm(np.cross(vec_u, vec_v))
 
             for i in range(7):
-                for j in range(i, 7):
+                for j in range(7):
                     int_v = M_int[i][j] * norm_cross_uv
                     for ii in range(3):
                         for jj in range(3):
