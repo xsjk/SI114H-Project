@@ -336,7 +336,7 @@ class SoundBoard:
             [-9 / 40, 0, -9 / 40, 0, 0, 9 / 5, 81 / 20]
         ]
 
-        base_func_map: dict[tuple[int, int], tuple[tuple[int, int, int], tuple[int, int, int]]] = {
+        base_func_map: dict[tuple[int, int], tuple[list[int, int, int], list[int, int, int]]] = {
             (0, 1): ([0, 1, 2], [0, 1, 2]),
             (1, 0): ([1, 0, 2], [0, 2, 1]),
             (0, 2): ([0, 2, 1], [2, 1, 0]),
